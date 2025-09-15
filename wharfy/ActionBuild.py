@@ -32,13 +32,20 @@ class ActionBuild(LoggingAction):
 			with WorkDir(os.path.dirname(build_script)):
 				subprocess.run([ build_script, arg ], check = True)
 
+	def _have_docker_buildx(self):
+		proc = subprocess.run([ "docker", "buildx", "version" ], check = False, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+		return proc.returncode == 0
+
 	def run(self):
+		docker_buildx = self._have_docker_buildx()
 		self._config = Configfile(self._args.config_file)
 		for container in self._config.containers:
 			try:
 				self._run_build_script(container, "setup")
-
-				cmd = [ "docker", "buildx", "build" ]
+				if docker_buildx:
+					cmd = [ "docker", "buildx", "build" ]
+				else:
+					cmd = [ "docker", "build" ]
 				cmd += [ "--tag", container.name ]
 				cmd += [ "--file", "Dockerfile" ]
 				cmd += [ self._config.path(container.build_directory) ]
